@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASCII 视觉矩阵</title>
+  <link rel="icon" href="data:,">
+  <script src="https://unpkg.com/libgif@0.0.3/libgif.js" crossorigin="anonymous"></script>
+  <script>
+    if (!window.SuperGif) {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/libgif@0.0.3/libgif.js"><\\/script>');
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/selfie_segmentation.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+  <div class="scanlines"></div>
+  <div id="recording-indicator" class="hidden" aria-hidden="true"></div>
+  <div id="hover-zone" aria-hidden="true"></div>
+  <div id="hidden-assets" hidden></div>
+
+  <aside id="controls" aria-label="设置面板">
+    <h3>设置面板</h3>
+
+    <div class="control-group">
+      <label for="colorMode">色彩模式</label>
+      <select id="colorMode">
+        <option value="original">原始色彩</option>
+        <option value="matrix">黑客帝国 (绿)</option>
+        <option value="bw">黑白胶片</option>
+        <option value="cyan">赛博朋克 (青)</option>
+        <option value="fire">烈焰 (红橙)</option>
+        <option value="custom">自定义颜色</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label for="charSetMode">字符集模式</label>
+      <select id="charSetMode">
+        <option value="standard">标准字符 (Standard)</option>
+        <option value="geometric">几何矩阵 (Geometric)</option>
+        <option value="binary">二进制 (0/1)</option>
+      </select>
+    </div>
+
+    <label class="toggle-row">
+      <span>反色模式 (Invert)</span>
+      <input type="checkbox" id="invertToggle">
+    </label>
+
+    <label class="toggle-row">
+      <span>忽略白色 (Ignore White)</span>
+      <input type="checkbox" id="ignoreWhiteToggle">
+    </label>
+
+    <div class="control-group">
+      <label for="bgColorPicker">背景颜色</label>
+      <input type="color" id="bgColorPicker" value="#000000">
+    </div>
+
+    <hr>
+
+    <label class="toggle-row">
+      <span>AI 去背景</span>
+      <input type="checkbox" id="backgroundRemovalToggle">
+    </label>
+
+    <div id="backgroundRemovalControls" class="hidden">
+      <div class="control-group">
+        <label for="backgroundRemovalOutput">去背景输出</label>
+        <select id="backgroundRemovalOutput">
+          <option value="transparent">透明背景</option>
+          <option value="color">替换为纯色</option>
+        </select>
+      </div>
+
+      <button id="backgroundRetryBtn" class="action-btn secondary-action" type="button">重新去背景</button>
+      <button id="backgroundUseOriginalBtn" class="action-btn secondary-action" type="button">使用原图</button>
+
+      <div class="control-group hidden" id="backgroundReplacementGroup">
+        <label for="backgroundReplacementColor">替换背景颜色</label>
+        <input type="color" id="backgroundReplacementColor" value="#000000">
+      </div>
+
+      <div class="control-group">
+        <label for="backgroundThresholdRange">分割阈值: <span id="backgroundThresholdValue">0.50</span></label>
+        <input type="range" id="backgroundThresholdRange" min="0.2" max="0.8" value="0.5" step="0.05">
+      </div>
+
+      <div class="control-group">
+        <label for="backgroundSoftnessRange">边缘柔化: <span id="backgroundSoftnessValue">0.10</span></label>
+        <input type="range" id="backgroundSoftnessRange" min="0.01" max="0.25" value="0.1" step="0.01">
+      </div>
+
+      <p id="backgroundRemovalStatus" class="hint">图片: 通用 AI 抠图 · 视频: 人像实时分割</p>
+      <div id="backgroundProgress" class="progress hidden" aria-hidden="true">
+        <div id="backgroundProgressBar"></div>
+      </div>
+      <p id="backgroundProgressText" class="hint hidden">0%</p>
+    </div>
+
+    <hr>
+
+    <div class="control-group hidden" id="customColorGroup">
+      <label for="customColorPicker">选择字体颜色</label>
+      <input type="color" id="customColorPicker" value="#00ff00">
+    </div>
+
+    <div class="control-group">
+      <label for="resolutionMode">输出分辨率 (影响录制)</label>
+      <select id="resolutionMode">
+        <option value="screen">屏幕自适应 (默认)</option>
+        <option value="original">源文件原始大小</option>
+        <option value="1280x720">HD (1280x720)</option>
+        <option value="1920x1080">FHD (1920x1080)</option>
+        <option value="3840x2160">4K (3840x2160)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label for="resolutionRange">字符大小: <span id="resValue">10</span>px</label>
+      <input type="range" id="resolutionRange" min="6" max="24" value="10" step="1">
+    </div>
+
+    <div class="control-group">
+      <label for="spacingRange">字符间距比例: <span id="spacingValue">1.0</span>x</label>
+      <input type="range" id="spacingRange" min="0.3" max="2.0" value="1.0" step="0.1">
+    </div>
+
+    <label class="toggle-row">
+      <span>开启点击波纹 (Ripple)</span>
+      <input type="checkbox" id="rippleToggle" checked>
+    </label>
+
+    <div class="control-group">
+      <label for="rippleRange">点击波纹强度</label>
+      <input type="range" id="rippleRange" min="10" max="100" value="50">
+    </div>
+
+    <hr>
+
+    <label class="toggle-row">
+      <span>录制完整循环 (自动结束)</span>
+      <input type="checkbox" id="autoLoopRecord" checked>
+    </label>
+
+    <button id="recordBtn" class="action-btn" type="button">开始录制视频</button>
+    <p id="recordStatus" class="hint">录制完成后会自动下载</p>
+
+    <hr>
+
+    <label class="toggle-row">
+      <span>导出播放器循环播放 (Loop)</span>
+      <input type="checkbox" id="exportLoopToggle" checked>
+    </label>
+    <button id="exportPlayerBtn" class="action-btn export-player" type="button">导出独立播放器 (HTML)</button>
+    <p class="hint">将媒体和效果打包为单个可分享的网页</p>
+
+    <hr>
+
+    <button id="exportAppBtn" class="action-btn export-app" type="button">下载本工具 (HTML)</button>
+    <p class="hint">保存整个工具到本地单文件离线运行</p>
+  </aside>
+
+  <main id="ui-layer">
+    <h1>ASCII 视觉矩阵</h1>
+    <p>支持 <strong>Video / GIF / Image</strong><br>请上传文件以开始</p>
+    <label class="upload-btn">
+      上传文件
+      <input type="file" id="fileInput" accept="image/*, video/*">
+    </label>
+    <p class="drop-hint">支持拖拽上传 · 鼠标移至左上角打开设置</p>
+  </main>
+
+  <div id="canvas-container">
+    <canvas id="asciiCanvas"></canvas>
+  </div>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
